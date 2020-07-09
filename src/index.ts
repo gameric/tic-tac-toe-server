@@ -19,17 +19,17 @@ function getNumberOfPlayers(room: string) {
   return io.sockets.adapter.rooms[room]?.length || 0;
 }
 
-function createRoom(): string {
-  const roomName = crypto.randomBytes(5).toString("hex");
-  games[roomName] = new Game();
-  return roomName;
-}
-
 function notifyRoom(room: string, event: string, data: any = undefined): void {
   io.sockets.to(room).emit(event, data);
 }
 
 io.on("connection", (socket) => {
+  function createRoom(): string {
+    const roomName = crypto.randomBytes(5).toString("hex");
+    games[roomName] = new Game(socket.id);
+    return roomName;
+  }
+
   socket.on("join-room", (room) => {
     if (!games[room])
       return socket.emit("join-error", { message: "Invalid room" });
@@ -68,16 +68,30 @@ io.on("connection", (socket) => {
 
   socket.on("new-room", () => {
     const room = createRoom();
-    socket.join(room);
     playerRoom[socket.id] = room;
-    games[room].addPlayer(socket.id);
-    socket.emit("joined-room", { room });
+    socket.join(room);
+    socket.emit("joined-room", {
+      room,
+      char: games[room].getPlayerChar(socket.id),
+      ...games[room].getState(),
+    });
   });
 
   socket.on("disconnect", (reason) => {
-    const game = games[playerRoom[socket.id]];
+    const room = playerRoom[socket.id];
+    const game = games[room];
     if (game) game.removePlayer(socket.id);
-    console.log(playerRoom[socket.id], "DISCONNECTED", reason);
+    if (getNumberOfPlayers(playerRoom[socket.id]) == 0) {
+      console.log("deleting room", room);
+      delete games[room];
+    }
+    console.log(
+      socket.id,
+      "from room",
+      playerRoom[socket.id],
+      "DISCONNECTED",
+      reason
+    );
   });
 });
 

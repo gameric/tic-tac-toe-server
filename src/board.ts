@@ -49,7 +49,9 @@ export class Game {
     Array.from({ length: 3 }, () => EMPTY_TILE)
   );
 
-  constructor() {}
+  constructor(xID: string) {
+    this.players[xID] = PLAYER.X;
+  }
 
   getWinState() {
     return { isTie: this.winner === "", winner: this.winner };
@@ -65,14 +67,18 @@ export class Game {
   }
 
   removePlayer(socketId: string) {
+    console.log("removePlayer");
     delete this.players[socketId];
   }
 
   addPlayer(socketId: string) {
+    console.log("addPlayer");
+
     this.players[socketId] = this.getPlayerChar(socketId);
   }
 
   getPlayerChar(socketId: string): string {
+    console.log("getPlayerChar");
     console.log(this.players);
     console.log(socketId, this.players[socketId]);
     return this.players[socketId]
