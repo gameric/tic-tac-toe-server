@@ -1,86 +1,52 @@
-export interface IPoint {
-  x: number;
-  y: number;
-}
+import { Point } from "./Point";
+import { PLAYER, IWinState, IPoint, IGameState } from "./types";
 
-export enum PLAYER {
-  X = "X",
-  O = "O",
-}
-
-const TOP_LEFT: IPoint = { x: 0, y: 0 };
-const TOP_RIGHT: IPoint = { x: 0, y: 2 };
-const CENTER_POINT: IPoint = { x: 1, y: 1 };
+const TOP_LEFT = new Point(0, 0);
+const TOP_RIGHT = new Point(0, 2);
+const CENTER_POINT = new Point(1, 1);
 
 const EMPTY_TILE = "";
 
-export class Point implements IPoint {
-  constructor(public x: number, public y: number) {}
-
-  add(p: IPoint): Point {
-    return new Point(this.x + p.x, this.y + p.y);
-  }
-
-  subtract(p: IPoint): Point {
-    return new Point(this.x - p.x, this.y - p.y);
-  }
-
-  equals(p: IPoint): boolean {
-    return this.x == p.x && this.y == p.y;
-  }
-
-  static negative(p: IPoint) {
-    return { x: -p.x, y: -p.y };
-  }
-}
-
-function getOpponent(char: string) {
-  return char == PLAYER.X ? PLAYER.O : PLAYER.X;
-}
+const getOpponent = (char: PLAYER): PLAYER =>
+  char == PLAYER.X ? PLAYER.O : PLAYER.X;
 
 export class Game {
   winner = "";
   moves = 0;
   turn: PLAYER = PLAYER.X;
-  players: { [key: string]: string } = {};
+  players: { [key: string]: PLAYER } = {};
   gameOver = false;
 
   board = Array.from({ length: 3 }, () =>
     Array.from({ length: 3 }, () => EMPTY_TILE)
   );
 
-  constructor(xID: string) {
-    this.players[xID] = PLAYER.X;
-  }
+  constructor(private room: string) {}
 
-  getWinState() {
+  getWinState(): IWinState {
     return { isTie: this.winner === "", winner: this.winner };
   }
 
-  getState() {
+  getState(socketID: string): IGameState {
     return {
       turn: this.turn,
       board: this.board,
       gameOver: this.gameOver,
+      room: this.room,
+      char: this.getPlayerChar(socketID),
       ...this.getWinState(),
     };
   }
 
-  removePlayer(socketId: string) {
-    console.log("removePlayer");
-    delete this.players[socketId];
+  removePlayer(socketID: string): void {
+    delete this.players[socketID];
   }
 
-  addPlayer(socketId: string) {
-    console.log("addPlayer");
-
-    this.players[socketId] = this.getPlayerChar(socketId);
+  addPlayer(socketID: string): void {
+    this.players[socketID] = this.getPlayerChar(socketID);
   }
 
-  getPlayerChar(socketId: string): string {
-    console.log("getPlayerChar");
-    console.log(this.players);
-    console.log(socketId, this.players[socketId]);
+  getPlayerChar(socketId: string): PLAYER {
     return this.players[socketId]
       ? this.players[socketId]
       : getOpponent(Object.values(this.players)[0]);
@@ -109,10 +75,7 @@ export class Game {
   }
 
   checkDiagonal({ x, y }: IPoint): boolean {
-    const direction = new Point(CENTER_POINT.x, CENTER_POINT.y).subtract({
-      x,
-      y,
-    });
+    const direction = CENTER_POINT.subtract({ x, y });
     const char = this.board[x][y];
     let p = new Point(x, y);
     for (let i = 0; i < 3; i++) {
@@ -155,9 +118,7 @@ export class Game {
 
     const playedPoint = new Point(x, y);
 
-    const isDiagonal = diagonalPoints.find((p: IPoint) =>
-      playedPoint.equals(p)
-    );
+    const isDiagonal = diagonalPoints.find((p) => playedPoint.equals(p));
 
     if (isDiagonal) {
       if (playedPoint.equals(CENTER_POINT)) {
@@ -170,24 +131,3 @@ export class Game {
     return false;
   }
 }
-
-// a client connects
-// without a room number
-// he gets assigned a room number
-// he gets added to the list of players in this room
-// he gets assigned a char
-//
-
-// a client connects with a room number
-// he gets assigned a room number
-// he gets added to the list of players in this room
-// now the game starts ()
-// each player gets notified and player X starts
-// we should keep track of whose turn is it
-//
-
-// when a player clicks a tile
-// we emit the event to the room and each player updates his board
-// we should also check if this is a win situation
-// inform the players with the new move and the char of the player and if it is a win sitiuation
-// the game keeps running until a win sitiuation is reached

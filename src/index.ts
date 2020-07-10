@@ -1,10 +1,10 @@
-import socketIO from "socket.io";
-import express from "express";
-import http from "http";
 import cors from "cors";
 import crypto from "crypto";
-
-import { Game, IPoint, PLAYER } from "./board";
+import express from "express";
+import http from "http";
+import socketIO from "socket.io";
+import { Game } from "./board";
+import { ITileClickedEvent } from "./types";
 
 const app = express();
 const server = http.createServer(app);
@@ -19,18 +19,22 @@ function getNumberOfPlayers(room: string) {
   return io.sockets.adapter.rooms[room]?.length || 0;
 }
 
-function notifyRoom(room: string, event: string, data: any = undefined): void {
+function notifyRoom(
+  room: string,
+  event: string,
+  data: any | undefined = undefined
+): void {
   io.sockets.to(room).emit(event, data);
 }
 
 io.on("connection", (socket) => {
   function createRoom(): string {
     const roomName = crypto.randomBytes(5).toString("hex");
-    games[roomName] = new Game(socket.id);
+    games[roomName] = new Game(roomName);
     return roomName;
   }
 
-  socket.on("join-room", (room) => {
+  socket.on("join-room", (room: string) => {
     if (!games[room])
       return socket.emit("join-error", { message: "Invalid room" });
 
@@ -44,11 +48,7 @@ io.on("connection", (socket) => {
     socket.join(room);
     games[room].addPlayer(socket.id);
 
-    const state = {
-      room,
-      char: games[room].getPlayerChar(socket.id),
-      ...games[room].getState(),
-    };
+    const state = games[room].getState(socket.id);
 
     socket.emit("joined-room", state);
   });
@@ -68,39 +68,23 @@ io.on("connection", (socket) => {
 
   socket.on("new-room", () => {
     const room = createRoom();
+    const game = games[room];
     playerRoom[socket.id] = room;
+    game.addPlayer(socket.id);
     socket.join(room);
-    socket.emit("joined-room", {
-      room,
-      char: games[room].getPlayerChar(socket.id),
-      ...games[room].getState(),
-    });
+    socket.emit("joined-room", game.getState(socket.id));
   });
 
-  socket.on("disconnect", (reason) => {
+  socket.on("disconnect", () => {
     const room = playerRoom[socket.id];
     const game = games[room];
     if (game) game.removePlayer(socket.id);
-    if (getNumberOfPlayers(playerRoom[socket.id]) == 0) {
-      console.log("deleting room", room);
+    if (getNumberOfPlayers(room) == 0) {
       delete games[room];
     }
-    console.log(
-      socket.id,
-      "from room",
-      playerRoom[socket.id],
-      "DISCONNECTED",
-      reason
-    );
   });
 });
 
 const PORT = process.env.PORT || 5000;
 
 server.listen(PORT, () => console.log(`listening on ${PORT}`));
-
-interface ITileClickedEvent {
-  room: string;
-  location: IPoint;
-  char: PLAYER;
-}
