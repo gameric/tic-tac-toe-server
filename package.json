@@ -1,7 +1,7 @@
 {
   "name": "tic-tac-toe-server",
   "version": "1.0.0",
-  "description": "",
+  "description": "tic-tac-toe-server",
   "main": "dist/index.js",
   "scripts": {
     "start": "node .",
@@ -17,7 +17,8 @@
     "@types/cors": "^2.8.6",
     "cors": "^2.8.5",
     "express": "^4.17.1",
-    "socket.io": "^2.3.0"
+    "socket.io": "^2.3.0",
+    "tic-tac-toe-shared": "^0.0.8"
   },
   "devDependencies": {
     "@types/socket.io": "^2.1.8",

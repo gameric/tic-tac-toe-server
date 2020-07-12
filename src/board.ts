@@ -1,14 +1,18 @@
+import {
+  getOpponent,
+  IGameState,
+  IMyGameState,
+  IPoint,
+  IWinState,
+  newBoard,
+  PLAYER,
+  EMPTY_TILE,
+} from "tic-tac-toe-shared";
 import { Point } from "./Point";
-import { PLAYER, IWinState, IPoint, IGameState } from "./types";
 
 const TOP_LEFT = new Point(0, 0);
 const TOP_RIGHT = new Point(0, 2);
 const CENTER_POINT = new Point(1, 1);
-
-const EMPTY_TILE = "";
-
-const getOpponent = (char: PLAYER): PLAYER =>
-  char == PLAYER.X ? PLAYER.O : PLAYER.X;
 
 export class Game {
   winner = "";
@@ -17,23 +21,38 @@ export class Game {
   players: { [key: string]: PLAYER } = {};
   gameOver = false;
 
-  board = Array.from({ length: 3 }, () =>
-    Array.from({ length: 3 }, () => EMPTY_TILE)
-  );
+  board = newBoard();
 
   constructor(private room: string) {}
 
   getWinState(): IWinState {
-    return { isTie: this.winner === "", winner: this.winner };
+    return { isTie: this.gameOver && this.winner === "", winner: this.winner };
   }
 
-  getState(socketID: string): IGameState {
+  reMatch(): void {
+    this.winner = "";
+    this.moves = 0;
+    this.gameOver = false;
+    this.board = newBoard();
+  }
+
+  getMyState(socketID: string): IMyGameState {
     return {
       turn: this.turn,
       board: this.board,
       gameOver: this.gameOver,
       room: this.room,
-      char: this.getPlayerChar(socketID),
+      myChar: this.getPlayerChar(socketID),
+      ...this.getWinState(),
+    };
+  }
+
+  getState(): IGameState {
+    return {
+      turn: this.turn,
+      board: this.board,
+      gameOver: this.gameOver,
+      room: this.room,
       ...this.getWinState(),
     };
   }
@@ -87,47 +106,28 @@ export class Game {
 
   isWinSitiuation(char: string, { x, y }: IPoint): boolean {
     if (this.moves < 5) return false;
-    let got3 = false;
+
+    let horizontal = 0,
+      vertical = 0;
     for (let i = 0; i < 3; i++) {
-      if (this.board[x][i] === char) got3 = true;
-      else {
-        got3 = false;
-        break;
-      }
+      if (this.board[x][i] === char) horizontal++;
+      if (this.board[i][y] === char) vertical++;
     }
 
-    if (got3) return true;
+    if (horizontal === 3 || vertical === 3) return true;
 
-    for (let i = 0; i < 3; i++) {
-      if (this.board[i][y] === char) got3 = true;
-      else {
-        got3 = false;
-        break;
-      }
-    }
+    const playedPoint = new Point(x, y);
 
-    if (got3) return true;
-
-    const diagonalPoints: IPoint[] = [
+    const isDiagonal = [
       { x: 0, y: 0 },
       { x: 2, y: 2 },
       { x: 0, y: 2 },
       { x: 2, y: 0 },
       CENTER_POINT,
-    ];
+    ].find((p) => playedPoint.equals(p));
 
-    const playedPoint = new Point(x, y);
-
-    const isDiagonal = diagonalPoints.find((p) => playedPoint.equals(p));
-
-    if (isDiagonal) {
-      if (playedPoint.equals(CENTER_POINT)) {
-        return this.checkDiagonal(TOP_LEFT) || this.checkDiagonal(TOP_RIGHT);
-      } else {
-        return this.checkDiagonal(playedPoint);
-      }
-    }
-
-    return false;
+    return isDiagonal && playedPoint.equals(CENTER_POINT)
+      ? this.checkDiagonal(TOP_LEFT) || this.checkDiagonal(TOP_RIGHT)
+      : this.checkDiagonal(playedPoint);
   }
 }

@@ -3,8 +3,8 @@ import crypto from "crypto";
 import express from "express";
 import http from "http";
 import socketIO from "socket.io";
+import { ITileClickedEvent } from "tic-tac-toe-shared";
 import { Game } from "./board";
-import { ITileClickedEvent } from "./types";
 
 const app = express();
 const server = http.createServer(app);
@@ -22,7 +22,7 @@ function getNumberOfPlayers(room: string) {
 function notifyRoom(
   room: string,
   event: string,
-  data: any | undefined = undefined
+  data: unknown = undefined
 ): void {
   io.sockets.to(room).emit(event, data);
 }
@@ -35,34 +35,41 @@ io.on("connection", (socket) => {
   }
 
   socket.on("join-room", (room: string) => {
-    if (!games[room])
-      return socket.emit("join-error", { message: "Invalid room" });
+    const game = games[room];
+    if (!game) return socket.emit("err", { message: "Invalid room" });
 
     const nPlayers = getNumberOfPlayers(room);
 
     if (nPlayers == 1) notifyRoom(room, "player-joined");
     else if (nPlayers == 2)
-      return socket.emit("join-error", { message: "Room is full" });
+      return socket.emit("err", { message: "Room is full" });
 
     playerRoom[socket.id] = room;
     socket.join(room);
-    games[room].addPlayer(socket.id);
+    game.addPlayer(socket.id);
 
-    const state = games[room].getState(socket.id);
+    const state = game.getMyState(socket.id);
 
     socket.emit("joined-room", state);
   });
 
-  socket.on("tile-clicked", (data: ITileClickedEvent) => {
-    if (!games[data.room])
-      return socket.emit("join-error", { message: "Invalid room" });
-    const game = games[data.room];
+  socket.on("new-game", () => {
+    const room = playerRoom[socket.id];
+    if (!games[room].gameOver) return socket.send("Game is NOT over yet!");
+    games[room].reMatch();
+    notifyRoom(room, "new-game", games[room].getState());
+  });
+
+  socket.on("tile-clicked", ({ char, point }: ITileClickedEvent) => {
+    const room = playerRoom[socket.id];
+    const game = games[room];
+    if (!game) return socket.emit("err", { message: "Invalid room" });
     try {
-      const gameOver = game.play(data.char, data.location);
-      if (gameOver) notifyRoom(data.room, "game-over", game.getWinState());
-      notifyRoom(data.room, "tile-clicked", data);
+      const gameOver = game.play(char, point);
+      if (gameOver) notifyRoom(room, "game-over", game.getWinState());
+      notifyRoom(room, "tile-clicked", { char, point });
     } catch (err) {
-      socket.emit("play-error", { message: err.message });
+      socket.emit("err", { message: err.message });
     }
   });
 
@@ -72,7 +79,7 @@ io.on("connection", (socket) => {
     playerRoom[socket.id] = room;
     game.addPlayer(socket.id);
     socket.join(room);
-    socket.emit("joined-room", game.getState(socket.id));
+    socket.emit("joined-room", game.getMyState(socket.id));
   });
 
   socket.on("disconnect", () => {

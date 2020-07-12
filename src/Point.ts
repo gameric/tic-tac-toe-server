@@ -1,4 +1,4 @@
-import { IPoint } from "./types";
+import { IPoint } from "tic-tac-toe-shared";
 
 export class Point implements IPoint {
   constructor(public x: number, public y: number) {}
