@@ -16,7 +16,7 @@
   "dependencies": {
     "@types/cors": "^2.8.6",
     "cors": "^2.8.5",
-    "express": "^4.19.2",
+    "express": "^4.20.0",
     "socket.io": "^4.7.2",
     "tic-tac-toe-shared": "^0.0.8"
   },
